@@ -165,7 +165,7 @@ You should see 10.0.1.20:5432 in the output.
 
 ## Step 5: Create the database, user and a 20-row products table
 
-Run these on the DB VM:
+Run these on the DB VM (change one of the products to be your full name, so we can search for it later and take a screenshot to show that you completed this assignment. For example, you might change Desk Lamp to Bob Smith before pasting the code into PuTTY):
 
 ```bash
 sudo -u postgres psql <<'SQL'
