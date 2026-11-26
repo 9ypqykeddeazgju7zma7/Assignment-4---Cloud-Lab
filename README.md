@@ -23,56 +23,17 @@ Replace these placeholders with your own values:
 
 You can find each instance’s private IP in the EC2 console under the instance details.
 
-## Step 1: Create the two EC2 instances
+## Step 1: Create the security groups
 
-In the AWS console, open **EC2 → Instances → Launch instances**. Launch two instances, one at a time, with the same OS, key pair, VPC and subnet.
+Create two security groups, one per VM, in the same VPC you will use for the instances in Step 2. The lettered steps show how, and the lists after them give the rules for each group.
 
-**Web VM**
+a. Open **EC2 → Security Groups → Create security group**.
 
-1. Name: `web-vm`.
-2. Application and OS image: **Ubuntu Server 24.04 LTS**.
-3. Instance type: `t3.micro` (enough for this guide).
-4. Key pair:
+b. Enter the name (`web-sg`), a short description, and choose the VPC you will use for the instances.
 
-   a. Choose **Create new key pair**, name it `webapp-key`, type RSA, and set the private key file format to `.ppk` (the format PuTTY uses).
+c. Add the inbound rules listed below for that group, then click **Create security group**.
 
-   b. Save the downloaded `webapp-key.ppk` file. You will reuse this key for both VMs.
-5. Network settings:
-
-   a. Click **Edit**, then choose your VPC and a subnet, and remember which subnet you picked.
-
-   b. Set **Auto-assign public IP** to **Enable**.
-
-   c. For the firewall, choose **Select existing security group** and pick **default**. You create and attach the real security groups in Step 2.
-6. Storage: leave the default 8 GiB.
-7. Click **Launch instance**.
-
-**DB VM**
-
-1. Name: `db-vm`.
-2. Use the same image, instance type and key pair (`webapp-key`) as the web VM.
-3. Network settings:
-
-   a. Click **Edit** and choose the **same VPC and the same subnet** as the web VM.
-
-   b. Set **Auto-assign public IP** to **Enable**, so you can connect to the DB VM from your computer in this lab.
-
-   c. Choose the **default** security group again.
-4. Storage: leave the default 8 GiB (increase it if you expect much more data).
-5. Click **Launch instance**.
-
-**Write down the IP addresses**
-
-When both instances show **Running**, select each one and note these values:
-
-- Web VM: private IPv4 address and public IPv4 address
-- DB VM: private IPv4 address and public IPv4 address
-
-Use them in place of the example addresses (10.0.1.10 and 10.0.1.20) in the rest of the guide.
-
-## Step 2: Configure security groups
-
-Use two security groups, one per VM.
+d. Repeat for `db-sg`. Create web-sg first, because db-sg refers to it.
 
 **Web security group (web-sg)**
 
@@ -88,11 +49,56 @@ Use two security groups, one per VM.
 
 The default network ACL already allows traffic inside the subnet.&#32;
 
-Attach each group to its instance: select the instance, then Actions → Security → Change security groups.
-
 **Note on the DB VM’s public IP**
 
 - Keep in mind that normally we would keep the DB VM off the internet by not assigning it a public IP address. In this lab we will assign it a public IP address though so we can install packages and for easy access for the students.
+
+## Step 2: Create the two EC2 instances
+
+In the AWS console, open **EC2 → Instances → Launch instances**. Launch two instances, one at a time, with the same OS, key pair, VPC and subnet.
+
+**Web VM**
+
+1. Name: `web-vm`.
+2. Application and OS image: **Ubuntu Server 24.04 LTS**.
+3. Instance type: `t3.micro` (enough for this guide).
+4. Key pair:
+
+   a. Choose **Create new key pair**, name it `webapp-key`, type RSA, and set the private key file format to `.ppk` (the format PuTTY uses).
+
+   b. Save the downloaded `webapp-key.ppk` file. You will reuse this key for both VMs.
+5. Network settings:
+
+   a. Click **Edit**, then choose the VPC you used for the security groups and a subnet, and remember which subnet you picked.
+
+   b. Set **Auto-assign public IP** to **Enable**.
+
+   c. For the firewall, choose **Select existing security group** and pick **web-sg** (created in Step 1).
+6. Storage: leave the default 8 GiB.
+7. Click **Launch instance**.
+
+**DB VM**
+
+1. Name: `db-vm`.
+2. Use the same image, instance type and key pair (`webapp-key`) as the web VM.
+3. Network settings:
+
+   a. Click **Edit** and choose the **same VPC and the same subnet** as the web VM.
+
+   b. Set **Auto-assign public IP** to **Enable**, so you can connect to the DB VM from your computer in this lab.
+
+   c. Choose the **db-sg** security group (created in Step 1).
+4. Storage: leave the default 8 GiB (increase it if you expect much more data).
+5. Click **Launch instance**.
+
+**Write down the IP addresses**
+
+When both instances show **Running**, select each one and note these values:
+
+- Web VM: private IPv4 address and public IPv4 address
+- DB VM: private IPv4 address and public IPv4 address
+
+Use them in place of the example addresses (10.0.1.10 and 10.0.1.20) in the rest of the guide.
 
 ## Step 3: Connect to both VMs with PuTTY
 
@@ -165,7 +171,7 @@ You should see 10.0.1.20:5432 in the output.
 
 ## Step 5: Create the database, user and a 20-row products table
 
-Run these on the DB VM (change one of the products to be your full name, so we can search for it later and take a screenshot to show that you completed this assignment. For example, you might change Desk Lamp to Bob Smith before pasting the code into PuTTY):
+Run these on the DB VM (change one of the products to be your full name, so we can search for it later and take a screenshot to show that you completed this assignment. For example, you might change **Desk Lamp** to **Bob Smith** before pasting the code into PuTTY):
 
 ```bash
 sudo -u postgres psql <<'SQL'
