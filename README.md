@@ -7,7 +7,7 @@
 This guide sets up two Ubuntu Server 24.04 EC2 instances in the same VPC subnet:
 
 - **Web VM**: Apache serves one PHP page that queries the database.
-- **DB VM**: PostgreSQL runs without a public IP and accepts connections only from the web VM over private IPs.
+- **DB VM**: PostgreSQL accepts connections only from the web VM over private IPs. For this lab it also has a public IP, for SSH and package installs.
 
 Traffic flow: Browser → Web VM (Apache, port 80) → DB VM (PostgreSQL, port 5432, private IP only).
 
@@ -34,9 +34,9 @@ In the AWS console, open **EC2 → Instances → Launch instances**. Launch two 
 3. Instance type: `t3.micro` (enough for this guide).
 4. Key pair:
 
-   a. Choose **Create new key pair**, name it `webapp-key`, type RSA, format `.pem`.
+   a. Choose **Create new key pair**, name it `webapp-key`, type RSA, and set the private key file format to `.ppk` (the format PuTTY uses).
 
-   b. Save the downloaded file. You will reuse this key for both VMs.
+   b. Save the downloaded `webapp-key.ppk` file. You will reuse this key for both VMs.
 5. Network settings:
 
    a. Click **Edit**, then choose your VPC and a subnet, and remember which subnet you picked.
@@ -55,7 +55,7 @@ In the AWS console, open **EC2 → Instances → Launch instances**. Launch two 
 
    a. Click **Edit** and choose the **same VPC and the same subnet** as the web VM.
 
-   b. Set **Auto-assign public IP** to **Disable**, so the DB VM only has a private IP.
+   b. Set **Auto-assign public IP** to **Enable**, so you can connect to the DB VM from your computer in this lab.
 
    c. Choose the **default** security group again.
 4. Storage: leave the default 8 GiB (increase it if you expect much more data).
@@ -66,7 +66,7 @@ In the AWS console, open **EC2 → Instances → Launch instances**. Launch two 
 When both instances show **Running**, select each one and note these values:
 
 - Web VM: private IPv4 address and public IPv4 address
-- DB VM: private IPv4 address (it should have no public IPv4 address)
+- DB VM: private IPv4 address and public IPv4 address
 
 Use them in place of the example addresses (10.0.1.10 and 10.0.1.20) in the rest of the guide.
 
@@ -83,56 +83,60 @@ Use two security groups, one per VM.
 **Database security group (db-sg)**
 
 - Inbound: TCP 5432 with the source set to **web-sg** (pick the security group itself, not an IP range)
-- Inbound: TCP 22 with the source set to **web-sg** (you reach the DB VM by jumping through the web VM, see below)
+- Inbound: TCP 22 from your own IP only
 - No other inbound rules, and never a rule open to 0.0.0.0/0
 
 The default network ACL already allows traffic inside the subnet.&#32;
 
 Attach each group to its instance: select the instance, then Actions → Security → Change security groups.
 
-**Keep the DB VM off the internet**
+**Note on the DB VM’s public IP**
 
 - Keep in mind that normally we would keep the DB VM off the internet by not assigning it a public IP address. In this lab we will assign it a public IP address though so we can install packages and for easy access for the students.
 
-## Step 3: Connect to both VMs with SSH
+## Step 3: Connect to both VMs with PuTTY
 
-Use a terminal on your computer (Terminal on macOS or Linux, PowerShell on Windows). Run the commands in the folder that contains `webapp-key.pem`, or give the full path to the file. Keep two terminal windows open, one for each VM.
+On your Windows computer, use PuTTY to connect to each VM directly. Have your `webapp-key.ppk` file ready, and keep two PuTTY windows open, one for each VM.
 
-a. Connect to the web VM:
+**Web VM**
 
-```bash
-ssh -i webapp-key.pem ubuntu@10.0.1.10
-```
+a. Open **PuTTY**. On the **Session** page, enter `ubuntu@<web VM public IP>` as the Host Name. Leave the port at 22 and the connection type as SSH.
 
-Type `yes` when asked to trust the host. The prompt changes to something like `ubuntu@ip-10-0-1-10`, which means you are now on the web VM.
+b. In the left menu, go to **Connection → SSH → Auth → Credentials** (in older PuTTY versions, **Connection → SSH → Auth**). Next to **Private key file for authentication**, click **Browse** and select `webapp-key.ppk`.
 
-b. In the second terminal window, connect to the DB VM. It has no public IP, so this command jumps through the web VM:
+c. Go back to the **Session** page, type `web-vm` in **Saved Sessions**, and click **Save**.
 
-```bash
-ssh -i webapp-key.pem -J ubuntu@10.0.1.10 ubuntu@10.0.1.20
-```
+d. Click **Open**. Click **Accept** if PuTTY shows a host key alert. The prompt changes to something like `ubuntu@ip-10-0-1-10`, which means you are now on the web VM.
 
-Replace 10.0.1.20 with the DB VM’s private IP. Type `yes` if you are asked to trust the host again. The prompt changes to something like `ubuntu@ip-10-0-1-20`, which means you are now on the DB VM.
+**DB VM**
 
-Optional alternative, in two hops: run `ssh-add webapp-key.pem`, connect to the web VM with `ssh -A ubuntu@<web VM public IP>`, then run `ssh ubuntu@10.0.1.20` from inside that session. On Windows, start the ssh-agent service first.
+a. Open a second PuTTY window. On the **Session** page, enter `ubuntu@<DB VM public IP>` as the Host Name.
 
-c. In the web VM terminal, set the hostname to `web-vm`:
+b. Under **Connection → SSH → Auth → Credentials**, select the same `webapp-key.ppk` file.
+
+c. Go back to the **Session** page, type `db-vm` in **Saved Sessions**, and click **Save**.
+
+d. Click **Open** and click **Accept** if PuTTY shows a host key alert. The prompt changes to something like `ubuntu@ip-10-0-1-20`, which means you are now on the DB VM.
+
+**Set the hostnames**
+
+a. In the web VM window, run:
 
 ```bash
 sudo hostname web-vm
 ```
 
-d. In the DB VM terminal, do the same with `db-vm`:
+b. In the DB VM window, run:
 
 ```bash
 sudo hostname db-vm
 ```
 
-Run `hostname` to check the result. Your prompt shows the new name the next time you connect: type `exit`, run the same ssh command again, and the prompt reads `ubuntu@web-vm` or `ubuntu@db-vm`. The name lasts until the VM reboots, and `sudo` may print an unable to resolve host warning, which is harmless.
+Run `hostname` to check the result. Your prompt shows the new name the next time you connect. The name lasts until the VM reboots, and `sudo` may print an unable to resolve host warning, which is harmless.
 
-Type `exit` to leave a VM when you are finished.
+Type `exit` to leave a VM when you are finished. To connect again later, open PuTTY, select the `web-vm` or `db-vm` saved session, and click **Load** and then **Open**.
 
-If you see Permission denied (publickey), check that you are using the user `ubuntu` and that the key file permissions are restrictive (`chmod 400 webapp-key.pem` on macOS or Linux). If the connection times out, check that web-sg allows port 22 from your current IP address, and for the DB VM that db-sg allows port 22 from web-sg.
+If PuTTY says No supported authentication methods available or Access denied, check that the user name is `ubuntu` and that the private key file is `webapp-key.ppk`. If the connection times out, check that the security group of that VM allows port 22 from your current IP address (web-sg for the web VM, db-sg for the DB VM).
 
 ## Step 4: Install PostgreSQL on the DB VM
 
@@ -165,7 +169,7 @@ Run these on the DB VM:
 
 ```bash
 sudo -u postgres psql <<'SQL'
-CREATE USER appuser WITH PASSWORD 'p4assw0rd';
+CREATE USER appuser WITH PASSWORD 'p4ssw0rd';
 CREATE DATABASE appdb OWNER appuser;
 SQL
 
@@ -230,7 +234,7 @@ b. Create the page (replace the IP and password with your own):
 sudo tee /var/www/html/index.php > /dev/null <<'EOF'
 <?php
 $q = trim($_GET['q'] ?? '');
-$db = new PDO('pgsql:host=10.0.1.20;port=5432;dbname=appdb;connect_timeout=5', 'appuser', 'p4assw0rd', [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+$db = new PDO('pgsql:host=10.0.1.20;port=5432;dbname=appdb;connect_timeout=5', 'appuser', 'p4ssw0rd', [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
 $stmt = $db->prepare('SELECT product_id, product_name, price FROM products WHERE product_name ILIKE :q ORDER BY product_id');
 $stmt->execute([':q' => '%' . $q . '%']);
 $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -306,8 +310,8 @@ Tip: attach an Elastic IP to the web VM so its address does not change when it r
 
 | Symptom | Likely cause | Fix |
 | --- | --- | --- |
-| `ssh` to the DB VM times out | db-sg has no port 22 rule from web-sg, or you connected directly instead of through the web VM | Add the rule and connect with `ssh -J` through the web VM |
-| `apt update` hangs on the DB VM | The DB VM has no outbound internet | Associate a temporary Elastic IP, then release it after Step 5 |
+| `ssh` to the DB VM times out | db-sg has no port 22 rule for your current IP address | Add or update the rule, then connect to the DB VM’s public IP again |
+| `apt update` hangs on the DB VM | The DB VM has no public IP, or its subnet has no route to the internet | Check that the DB VM has a public IPv4 address and that the subnet’s route table has a route to an internet gateway |
 | `psql` hangs, then times out | db-sg has no 5432 rule from web-sg, or the wrong IP is used | Fix the db-sg inbound rule and use the DB VM’s private IP |
 | Connection refused | PostgreSQL is not listening on the private IP | Run `sudo -u postgres psql -c 'SHOW listen_addresses;'`, restart PostgreSQL, and look for 5432 with `ss -tln` |
 | no pg\_hba.conf entry for host | The pg\_hba.conf line is missing or has the wrong IP, database or user | Fix the line, then run `sudo systemctl reload postgresql` |
