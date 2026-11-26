@@ -38,13 +38,13 @@ d. Repeat for `db-sg`. Create web-sg first, because db-sg refers to it.
 **Web security group (web-sg)**
 
 - Inbound: TCP 80 and 443 from 0.0.0.0/0
-- Inbound: TCP 22 from your own IP only
+- Inbound: TCP 22 from your own IP only (choose My IP as Source Type)
 - Outbound: allow all (default)
 
 **Database security group (db-sg)**
 
 - Inbound: TCP 5432 with the source set to **web-sg** (pick the security group itself, not an IP range)
-- Inbound: TCP 22 from your own IP only
+- Inbound: TCP 22 from your own IP only (choose My IP as Source Type)
 - No other inbound rules, and never a rule open to 0.0.0.0/0
 
 The default network ACL already allows traffic inside the subnet.&#32;
